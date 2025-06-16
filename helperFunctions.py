@@ -2,11 +2,16 @@ import numpy as np
 import uproot as uproot
 from cycler import cycler
 
-# DAC conversion factor in [mV/bin]
+# DAC conversion factor in [mV/bit]
 dacConv = 2000 / 2**14
 
 # sampling time in [ns]
 samplingTime = 2
+
+# absolute threshold for the time-over-threshold analysis in [mV]
+tot_absTh = 120
+# relative threshold for the time-over-threshold analysis
+tot_relTh = 0.15
 
 pres = {'axes.titlecolor':'white',
         'axes.edgecolor':'white', 
@@ -45,21 +50,21 @@ def meanWithError (data:np.ndarray[float]) -> np.ndarray[float]:
     '''
     return np.array([data.mean(), data.std()/np.sqrt(len(data))])
 
-def linFct (x:np.ndarray[float], a:float, b:float=0) -> np.ndarray[float]:
+def linFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     '''
     linear polynomial function
     
-    a*x + b
+    p[1]*x + p[0]
     '''
-    return a*x + b
-
-def quadFct (x:np.ndarray[float], a:float, b:float, c:float=0) -> np.ndarray[float]:
+    return p[1]*x + p[0]
+    
+def quadFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     '''
     quadratic polynomial function
     
-    a*x**2 + b*x + c
+    p[2]*x**2 + p[1]*x + p[0]
     '''
-    return a*x**2 + b*x + c
+    return p[2]*x**2 + p[1]*x + p[0]
 
 def getDOOCS (run, type='charge'):
     '''
@@ -104,14 +109,16 @@ def getCALO (run:int, channel:int=0, type:str='int') -> np.ndarray[float]:
 
     type:
         type of the data
-        amp:    maximum amplitude of the waveform in [mV]
-        ampPos: position of the amplitude maximum in [ns]
-        int:    integral of the waveform in [mV µs]
-        adc:    raw waveform in [adc counts]
-        wave:   baseline subtracted waveform in [mV]
+        amp:     maximum amplitude of the waveform in [mV]
+        ampPos:  position of the amplitude maximum in [ns]
+        int:     integral of the waveform in [mV µs]
+        tot:     time over threshold in [ns]
+        tot_rel: relative time over threshold in [ns]
+        adc:     raw waveform in [adc counts]
+        wave:    baseline subtracted waveform in [mV]
     '''
 
-    filename = f'data/run_{run:05d}.root'
+    filename = f'../data/run_{run:05d}.root'
     
     with uproot.open(filename) as fd:
             
@@ -127,9 +134,6 @@ def getCALO (run:int, channel:int=0, type:str='int') -> np.ndarray[float]:
             # create the time array in [ns]
             time_ns = samplingTime * np.arange(sig_mV.shape[-1])
         
-            # load the timestamps of the events in [ns]
-            timestamp_ns = fd['data;1']['timestamp'].array().to_numpy()
-        
             # get the amplitude in [mV]
             amplitude = abs(dacConv*fd['data;1'][f'amplitude{channel}'].array().to_numpy())
 
@@ -138,6 +142,10 @@ def getCALO (run:int, channel:int=0, type:str='int') -> np.ndarray[float]:
         
             # get the integral in [mV µs]
             integral = abs(dacConv*fd['data;1'][f'integral{channel}'].array().to_numpy()) * samplingTime/1e3
+
+            # calculate the time over threshold in [ns]
+            tot = samplingTime * np.sum(sig_mV>tot_absTh, axis=1)
+            tot_rel = samplingTime * np.sum(sig_mV>tot_relTh*amplitude[:,np.newaxis], axis=1)
 
     # create the mask to remove all empty events
     mask = (sig_mV.std(axis=1)>50)
@@ -148,6 +156,10 @@ def getCALO (run:int, channel:int=0, type:str='int') -> np.ndarray[float]:
         return amplitudePosition[mask]
     elif type=='int':
         return integral[mask]
+    elif type=='tot':
+        return tot[mask]
+    elif type=='tot_rel':
+        return tot_rel[mask]
     elif type=='adc':
         return adc[mask]
     elif type=='wave':
