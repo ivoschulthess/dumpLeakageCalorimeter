@@ -10,6 +10,7 @@ matplotlib = "*"
 pandas = "*"
 jupyterlab = "*"
 uproot = "*"
+requests = "*"
 
 [dev-packages]
 

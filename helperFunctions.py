@@ -44,11 +44,13 @@ def ratio (A, B):
     
     return np.array([ratio, ratioErr])
 
+
 def meanWithError (data:np.ndarray[float]) -> np.ndarray[float]:
     '''
     calculate the mean of a data set and the uncertainty of the mean
     '''
     return np.array([data.mean(), data.std()/np.sqrt(len(data))])
+
 
 def linFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     '''
@@ -57,6 +59,7 @@ def linFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     p[1]*x + p[0]
     '''
     return p[1]*x + p[0]
+
     
 def quadFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     '''
@@ -65,6 +68,16 @@ def quadFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
     p[2]*x**2 + p[1]*x + p[0]
     '''
     return p[2]*x**2 + p[1]*x + p[0]
+
+
+def chargeFct (p:np.ndarray[float], x:np.ndarray[float]) -> np.ndarray[float]:
+    '''
+    quadratic polynomial with additional scaling constant
+
+    p[3] * ( p[2]*x**2 + p[1]*x + p[0] )
+    '''
+    return p[3] * ( p[2]*x**2 + p[1]*x + p[0] )
+
 
 def getDOOCS (run, type='charge'):
     '''
@@ -118,7 +131,7 @@ def getCALO (run:int, channel:int=0, type:str='int') -> np.ndarray[float]:
         wave:    baseline subtracted waveform in [mV]
     '''
 
-    filename = f'../data/run_{run:05d}.root'
+    filename = f'data/measurements/run_{run:05d}.root'
     
     with uproot.open(filename) as fd:
             
